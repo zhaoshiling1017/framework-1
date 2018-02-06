@@ -8,7 +8,7 @@ public class Test {
 
     public static void main(String[] args) throws InterruptedException {
 
-        Flusher<String> stringFlusher = new Flusher<>("test",5,2000,30,1,new PrintOutProcessor());
+        Flusher<String> stringFlusher = new Flusher<>("test",5,2000,30,3, new PrintOutProcessor());
 
         int index = 1;
         while (true){

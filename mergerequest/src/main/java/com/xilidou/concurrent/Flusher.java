@@ -25,12 +25,21 @@ public class Flusher<Item> {
 
     private static ExecutorService POOL = Executors.newCachedThreadPool();
 
-    public Flusher(String name,int bufferSiz,int flushInterval,int queueSize,int threads,Processor<Item> processor) {
+    /**
+     *
+     * @param name 线程名称
+     * @param bufferSiz 缓冲区大小
+     * @param flushInterval 冲洗间隔
+     * @param queueSize 队列大小
+     * @param threads 线程数目
+     * @param processor 具体逻辑
+     */
+    public Flusher(String name,int bufferSiz,int flushInterval,int queueSize,int threads, Processor<Item> processor) {
 
         this.flushThreads = new FlushThread[threads];
 
 
-        if(threads > 1){
+        if (threads > 1) {
             index = new AtomicInteger();
         }
 
@@ -42,9 +51,9 @@ public class Flusher<Item> {
         }
     }
 
-    public boolean add(Item item){
+    public boolean add(Item item) {
         int len = flushThreads.length;
-        if(len == 1){
+        if (len == 1) {
             return flushThreads[0].add(item);
         }
 
@@ -53,7 +62,7 @@ public class Flusher<Item> {
 
     }
 
-    private static class FlushThread<Item> implements Runnable{
+    private static class FlushThread<Item> implements Runnable {
 
         private final String name;
         private final int bufferSize;
@@ -65,54 +74,52 @@ public class Flusher<Item> {
         private final BlockingQueue<Item> queue;
         private final Processor<Item> processor;
 
-        public FlushThread(String name, int bufferSize, int flushInterval,int queueSize,Processor<Item> processor) {
+        public FlushThread(String name, int bufferSize, int flushInterval,int queueSize, Processor<Item> processor) {
             this.name = name;
             this.bufferSize = bufferSize;
             this.flushInterval = flushInterval;
             this.lastFlushTime = System.currentTimeMillis();
             this.processor = processor;
-
             this.queue = new ArrayBlockingQueue<>(queueSize);
-
         }
 
-        public boolean add(Item item){
+        public boolean add(Item item) {
             boolean result = queue.offer(item);
             flushOnDemand();
             return result;
         }
 
         public void timeOut(){
-            if(System.currentTimeMillis() - lastFlushTime >= flushInterval){
+            if (System.currentTimeMillis() - lastFlushTime >= flushInterval) {
                 start();
             }
         }
 
-        private void start(){
+        private void start() {
             LockSupport.unpark(writer);
         }
 
-        private void flushOnDemand(){
-            if(queue.size() > bufferSize){
+        private void flushOnDemand() {
+            if (queue.size() >= bufferSize) {
                 start();
             }
         }
 
-        public void flush(){
+        public void flush() {
             lastFlushTime = System.currentTimeMillis();
             List<Item> temp = new ArrayList<>(bufferSize);
             int size = queue.drainTo(temp,bufferSize);
-            if(size > 0){
+            if (size > 0) {
                 try {
                     processor.process(temp);
-                }catch (Throwable e){
-                    log.error("process error",e);
+                } catch (Throwable e) {
+                    log.error("process error", e);
                 }
             }
         }
 
-        private boolean canFlush(){
-            return queue.size() > bufferSize || System.currentTimeMillis() - lastFlushTime > flushInterval;
+        private boolean canFlush() {
+            return queue.size() >= bufferSize || System.currentTimeMillis() - lastFlushTime > flushInterval;
         }
 
         @Override
@@ -120,8 +127,8 @@ public class Flusher<Item> {
             writer = Thread.currentThread();
             writer.setName(name);
 
-            while (!writer.isInterrupted()){
-                while (!canFlush()){
+            while (!writer.isInterrupted()) {
+                while (!canFlush()) {
                     LockSupport.park(this);
                 }
                 flush();
